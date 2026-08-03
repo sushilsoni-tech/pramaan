@@ -1,0 +1,31 @@
+name: Bug report
+description: Report incorrect verifier or recorder behavior
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: Include the command, exit code, and finding codes. Do not attach sensitive bundles publicly.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Pramaan version
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Python and operating system
+    validations:
+      required: true
+

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pramaan-records"
+version = "0.1.0"
+description = "Portable, independently verifiable records for AI-agent workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = ["cryptography>=42"]
+authors = [{name = "Sushil Soni"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security :: Cryptography",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["ai-agents", "verification", "provenance", "attestation", "audit"]
+
+[project.urls]
+Homepage = "https://github.com/sushilsoni-tech/pramaan"
+Repository = "https://github.com/sushilsoni-tech/pramaan"
+Issues = "https://github.com/sushilsoni-tech/pramaan/issues"
+Changelog = "https://github.com/sushilsoni-tech/pramaan/blob/main/CHANGELOG.md"
+
+[project.scripts]
+pramaan = "pramaan.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

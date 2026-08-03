@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose a focused verification or interoperability improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: trust-boundary
+    attributes:
+      label: Trust-boundary problem
+      description: Which producer-to-reviewer verification problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: smallest-change
+    attributes:
+      label: Smallest useful change
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Existing standard or alternative
+      description: Could OpenTelemetry, DSSE, in-toto, Git, or another tool already solve it?
+

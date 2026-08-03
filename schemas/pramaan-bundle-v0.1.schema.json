@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sushilsoni-tech/pramaan/blob/main/schemas/pramaan-bundle-v0.1.schema.json",
+  "title": "Pramaan Bundle Descriptor v0.1",
+  "type": "object",
+  "required": ["spec_version", "run_id", "producer", "created_at", "public_key_fingerprint"],
+  "properties": {
+    "spec_version": {"const": "0.1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "producer": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "public_key_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

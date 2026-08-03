@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sushilsoni-tech/pramaan/blob/main/schemas/pramaan-policy-v0.1.schema.json",
+  "title": "Pramaan Reconstruction Policy v0.1",
+  "type": "object",
+  "required": ["policy_version", "policy_id", "material_claims_require_evidence", "required_validations", "required_approvals"],
+  "properties": {
+    "policy_version": {"const": "0.1"},
+    "policy_id": {"type": "string", "minLength": 1},
+    "material_claims_require_evidence": {"type": "boolean"},
+    "required_validations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "status": {"enum": ["passed", "completed"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "required_approvals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "status"],
+        "properties": {
+          "role": {"type": "string", "minLength": 1},
+          "status": {"const": "approved"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

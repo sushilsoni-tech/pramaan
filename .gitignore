@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+*-private.pem
+.pramaan/keys/
+demo-bundle/
+demo-tampered/
+outputs/pramaan-install-test/
+outputs/.pip-cache/
+outputs/.tmp/
