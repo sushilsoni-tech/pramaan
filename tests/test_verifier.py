@@ -201,7 +201,14 @@ class VerifierTests(unittest.TestCase):
         recorder.record("run.completed", SYSTEM, {"summary": "Completed"})
         bundle = recorder.finalize(self.root / "stale-report", default_policy(), private_key_path=key)
         report_path = bundle / "report.html"
-        report_path.write_text(report_path.read_text(encoding="utf-8").replace("1</strong><span>Approval events", "9</strong><span>Approval events"), encoding="utf-8")
+        original_report = report_path.read_bytes()
+        modified_report = original_report.replace(
+            b"Ready for independent check",
+            b"Sender-approved record",
+            1,
+        )
+        self.assertNotEqual(original_report, modified_report)
+        report_path.write_bytes(modified_report)
         statement, fingerprint = verify_envelope(json.loads((bundle / "attestation.dsse.json").read_text(encoding="utf-8")), bundle / "public-key.pem")
         for subject in statement["subject"]:
             if subject["name"] == "report.html":
