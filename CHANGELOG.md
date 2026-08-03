@@ -13,7 +13,8 @@ All notable changes to Pramaan will be documented here.
 - independent CLI verification with pinned and unpinned signer disclosure;
 - deterministic static HTML reconstruction report;
 - tamper demonstration and machine-readable verification output;
-- 20 adversarial and integration tests.
+- 21 adversarial and integration tests.
+- Two-audience offline report with a plain-language customer summary and technical detail view.
 
 ### Security
 
@@ -22,4 +23,3 @@ All notable changes to Pramaan will be documented here.
 - symlinked and unsigned extra files are rejected;
 - reports are re-derived and byte-compared during verification;
 - invalid policies fail closed.
-

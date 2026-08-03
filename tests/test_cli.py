@@ -28,6 +28,11 @@ class CliTests(unittest.TestCase):
             invalid = root / "invalid"
             built = self.run_cli("example", "two-agent", str(valid))
             self.assertEqual(0, built.returncode, built.stderr)
+            report = (valid / "report.html").read_text(encoding="utf-8")
+            self.assertIn("Can I accept it yet? Not yet.", report)
+            self.assertIn("Technical detail", report)
+            self.assertIn("--expected-key", report)
+            self.assertIn("Not independently checked", report)
             passed = self.run_cli("verify", str(valid))
             self.assertEqual(0, passed.returncode, passed.stdout + passed.stderr)
             self.assertIn("Pramaan verification: PASS", passed.stdout)
