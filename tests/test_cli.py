@@ -49,6 +49,53 @@ class CliTests(unittest.TestCase):
             self.assertIn("MISSING_REQUIRED_APPROVAL", failed.stdout)
             self.assertIn("SUBJECT_DIGEST_MISMATCH", failed.stdout)
 
+    def test_editorial_example_writes_separate_result_files(self):
+        with tempfile.TemporaryDirectory(prefix="pramaan-editorial-cli-") as temp:
+            root = Path(temp)
+            bundle = root / "bundle"
+            result_html = root / "verification-result.html"
+            result_json = root / "verification-result.json"
+            built = self.run_cli("example", "editorial", str(bundle), "--case", "valid")
+            self.assertEqual(0, built.returncode, built.stdout + built.stderr)
+            verified = self.run_cli(
+                "verify",
+                str(bundle),
+                "--result-html",
+                str(result_html),
+                "--result-json",
+                str(result_json),
+            )
+            self.assertEqual(0, verified.returncode, verified.stdout + verified.stderr)
+            self.assertIn("Pramaan signed-file integrity: PASS", verified.stdout)
+            self.assertIn("Pramaan overall verification: PASS", verified.stdout)
+            self.assertIn("not_satisfied=0", verified.stdout)
+            self.assertTrue(result_html.is_file())
+            self.assertTrue(result_json.is_file())
+            self.assertFalse((bundle / "verification-result.html").exists())
+
+    def test_adverse_editorial_result_exits_nonzero(self):
+        with tempfile.TemporaryDirectory(prefix="pramaan-editorial-adverse-") as temp:
+            bundle = Path(temp) / "late-review"
+            built = self.run_cli("example", "editorial", str(bundle), "--case", "post-publication")
+            self.assertEqual(0, built.returncode, built.stdout + built.stderr)
+            verified = self.run_cli("verify", str(bundle), "--json")
+            self.assertEqual(1, verified.returncode, verified.stdout + verified.stderr)
+            payload = json.loads(verified.stdout)
+            self.assertFalse(payload["valid"])
+            self.assertTrue(payload["integrity_valid"])
+            self.assertTrue(payload["editorial_summary"]["has_not_satisfied"])
+
+    def test_policy_failure_demo_is_reachable(self):
+        with tempfile.TemporaryDirectory(prefix="pramaan-policy-demo-") as temp:
+            bundle = Path(temp) / "policy-failure"
+            built = self.run_cli("example", "editorial", str(bundle), "--case", "policy-failure")
+            self.assertEqual(0, built.returncode, built.stdout + built.stderr)
+            verified = self.run_cli("verify", str(bundle), "--json")
+            self.assertEqual(1, verified.returncode, verified.stdout + verified.stderr)
+            payload = json.loads(verified.stdout)
+            self.assertTrue(payload["integrity_valid"])
+            self.assertFalse(payload["valid"])
+
 
 if __name__ == "__main__":
     unittest.main()

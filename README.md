@@ -33,6 +33,33 @@ The first verification passes. The second names the changed event record and the
 
 Open `report.html` inside the bundle to inspect the reconstructed workflow without running a server. The report always says verification is required; only the CLI can issue a PASS.
 
+## Editorial Responsibility Profile
+
+The optional editorial profile records one AI-assisted publication, its generation and review events, the exact published content hash, and the person or entity named as editorially responsible. Pramaan reports what the signed record contains; it does not decide whether a review was meaningful or make a legal or regulatory determination.
+
+Build and verify the example:
+
+```powershell
+pramaan example editorial editorial-bundle --case valid
+pramaan verify editorial-bundle `
+  --result-html editorial-verification.html `
+  --result-json editorial-verification.json
+```
+
+Open `editorial-verification.html` for the verifier-generated two-audience result. Its plain-language view is intended for founders, editors, clients, and general reviewers; the technical view contains the fixed check set, review chain, identity assurance, and core verifier findings.
+
+The result files must be written outside `editorial-bundle`. They are created after verification and are intentionally not producer-signed bundle inputs.
+
+Two adverse examples are included:
+
+```powershell
+pramaan example editorial missing-reviewer-bundle --case missing-reviewer
+pramaan example editorial late-review-bundle --case post-publication
+pramaan example editorial policy-failure-bundle --case policy-failure
+```
+
+A `not_satisfied` editorial check makes the JSON `valid` field false and the verifier exits nonzero, while `integrity_valid` continues to report signed-file integrity separately. The policy-failure example demonstrates the inverse distinction: intact signed files with an unsatisfied declared reconstruction policy.
+
 ## What The Verifier Checks
 
 - DSSE signature over an in-toto-style statement
@@ -42,6 +69,9 @@ Open `report.html` inside the bundle to inspect the reconstructed workflow witho
 - evidence references for material claims
 - required validations and their status
 - required approval roles and status
+- identical or backwards-moving producer event timestamps
+- optional editorial responsibility records using a versioned seven-check set
+- published-content hashes, declared substantive review, review timing, change evidence, named responsibility, identity binding, and signed record integrity
 
 Pramaan v0.1 produces a standards-conformant DSSE signature payload, but intentionally accepts only one Ed25519 signature whose key ID is the SHA-256 fingerprint of the included public key. It does not yet consume arbitrary multi-signature DSSE envelopes or third-party key-ID conventions.
 
@@ -49,6 +79,7 @@ Pramaan v0.1 produces a standards-conformant DSSE signature payload, but intenti
 
 - The producer is self-attesting. A valid bundle does not prove that every real-world action was recorded.
 - Approval events assert that approval occurred; v0.1 does not authenticate the human or prove meaningful review.
+- Editorial reviewer identities are self-asserted in editorial profile v0.1. Reviewer-held signatures are not yet supported and are reported as `unverifiable`.
 - Producer timestamps are not trusted timestamps.
 - Completeness is measured only against the policy included in the bundle.
 - Verification does not establish truth, legality, correctness, or source authenticity.
@@ -77,9 +108,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution scope and [SECURITY.md](
 
 ## Status
 
-Pramaan `0.1.0` is a validation prototype. The product is considered validated only when a bundle crosses a real organisational trust boundary and changes whether an external reviewer accepts the producer's claimed workflow.
+Pramaan `0.1.0` is the published validation prototype. The current `main` branch is `0.2.0.dev0`. The product is considered validated only when a bundle crosses a real organisational trust boundary and changes whether an external reviewer accepts the producer's claimed workflow.
 
-Version 0.1 ships a complete demonstration producer and verifier. The Python `Recorder` API is intentionally not yet documented as a stable integration contract; early adopters should treat it as experimental while real cross-organisation workflows shape the first supported producer interface.
+Version 0.1 ships a complete demonstration producer and verifier. The optional editorial profile and verifier-generated result surface are under active `0.2.0.dev0` validation on `main`. The Python `Recorder` API is intentionally not yet documented as a stable integration contract; early adopters should treat it as experimental while real cross-organisation workflows shape the first supported producer interface.
 
 ## License
 

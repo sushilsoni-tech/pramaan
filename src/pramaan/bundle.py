@@ -34,6 +34,7 @@ class Recorder:
         self.producer = {"id": producer_id, "name": producer_name}
         self.events: list[dict] = []
         self.artifacts: dict[str, Path] = {}
+        self.profile_documents: dict[str, dict] = {}
 
     def record(self, event_type: str, actor: dict, data: dict, occurred_at: str | None = None) -> str:
         if event_type not in EVENT_TYPES:
@@ -69,6 +70,13 @@ class Recorder:
             },
         )
 
+    def add_profile(self, filename: str, document: dict) -> None:
+        if filename != "editorial-record.json":
+            raise ValueError(f"unsupported profile filename: {filename}")
+        if filename in self.profile_documents:
+            raise ValueError(f"duplicate profile document: {filename}")
+        self.profile_documents[filename] = document
+
     def finalize(self, output_dir: Path, policy: dict, private_key_path: Path | None = None) -> Path:
         if output_dir.exists() and any(output_dir.iterdir()):
             raise ValueError(f"output directory is not empty: {output_dir}")
@@ -83,6 +91,8 @@ class Recorder:
         events_path = output_dir / "events.jsonl"
         events_path.write_bytes(b"".join(canonical_json_bytes(event) + b"\n" for event in self.events))
         write_json(output_dir / "policy.json", policy)
+        for filename, document in self.profile_documents.items():
+            write_json(output_dir / filename, document)
 
         public_path = output_dir / "public-key.pem"
         ephemeral_key_dir = None
@@ -117,7 +127,14 @@ class Recorder:
         write_json(output_dir / "bundle.json", descriptor)
         generate_report(output_dir / "report.html", descriptor, self.events, policy)
 
-        subject_names = ["bundle.json", "events.jsonl", "policy.json", "report.html", *sorted(self.artifacts)]
+        subject_names = [
+            "bundle.json",
+            "events.jsonl",
+            "policy.json",
+            "report.html",
+            *sorted(self.profile_documents),
+            *sorted(self.artifacts),
+        ]
         statement = {
             "_type": STATEMENT_TYPE,
             "subject": [
