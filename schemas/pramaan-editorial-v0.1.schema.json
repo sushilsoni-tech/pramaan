@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sushilsoni-tech/pramaan/blob/main/schemas/pramaan-editorial-v0.1.schema.json",
+  "title": "Pramaan Editorial Responsibility Profile v0.1",
+  "type": "object",
+  "required": ["profile", "profile_version", "check_set_version", "item", "generation_events", "review_events", "editorial_responsibility", "disclosure_state"],
+  "properties": {
+    "profile": {"const": "editorial-responsibility"},
+    "profile_version": {"const": "0.1"},
+    "check_set_version": {"const": "0.1"},
+    "item": {
+      "type": "object",
+      "required": ["item_id", "item_title", "publication_context", "published_artifact", "content_hash", "published_at"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "item_title": {"type": "string", "minLength": 1},
+        "publication_context": {"type": "string", "minLength": 1},
+        "published_artifact": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "published_at": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "generation_events": {"type": "array", "items": {"type": "object"}},
+    "review_events": {"type": "array", "items": {"type": "object"}},
+    "editorial_responsibility": {"type": ["object", "null"]},
+    "disclosure_state": {"enum": ["labelled", "not_labelled", "unknown"]}
+  },
+  "additionalProperties": false
+}

@@ -1,17 +1,52 @@
 import json
 import re
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 
-from .bundle import EVENT_TYPES, PREDICATE_TYPE, SPEC_VERSION, STATEMENT_TYPE, load_events
+from . import __version__
+from .bundle import EVENT_TYPES, PREDICATE_TYPE, SPEC_VERSION, STATEMENT_TYPE, load_events, utc_now
 from .canonical import sha256_file
 from .crypto import verify_envelope
+from .editorial import (
+    EDITORIAL_CHECK_SET_VERSION,
+    EditorialCheck,
+    evaluate_editorial_profile,
+    unavailable_editorial_evaluation,
+)
 from .report import render_report
 
 
 CORE_SUBJECTS = {"bundle.json", "events.jsonl", "policy.json", "report.html"}
+INTEGRITY_FAILURE_CODES = {
+    "MISSING_OR_UNSAFE_PUBLIC_KEY",
+    "INVALID_ATTESTATION_SIGNATURE",
+    "KEY_FINGERPRINT_MISMATCH",
+    "INVALID_ATTESTATION_STATEMENT",
+    "ATTESTATION_RUN_MISMATCH",
+    "MISSING_ATTESTED_SUBJECTS",
+    "INVALID_ATTESTED_SUBJECT",
+    "DUPLICATE_ATTESTED_SUBJECT",
+    "UNSAFE_SUBJECT_PATH",
+    "MISSING_SUBJECT",
+    "SUBJECT_DIGEST_MISMATCH",
+    "UNATTESTED_FILE",
+    "UNREGISTERED_BUNDLE_FILE",
+    "REPORT_NOT_DERIVED_FROM_EVENTS",
+    "UNSAFE_ARTIFACT_PATH",
+    "MISSING_ARTIFACT",
+    "ARTIFACT_DIGEST_MISMATCH",
+}
+LIMITATIONS = [
+    "The producer may omit actions or evidence, and omitted material cannot be detected.",
+    "Content hashes establish byte identity, not accuracy or authenticity.",
+    "A recorded review does not prove that the review was meaningful or competent.",
+    "Producer timestamps are not independently trusted timestamps.",
+    "A valid signature establishes identity only when its fingerprint is checked independently.",
+    "The verifier makes no regulatory or legal determination.",
+]
 
 
 @dataclass
@@ -24,11 +59,22 @@ class Finding:
 @dataclass
 class VerificationResult:
     bundle: str
+    verified_at: str = field(default_factory=utc_now)
+    verifier_version: str = __version__
     valid: bool = True
+    integrity_valid: bool = False
     signer_fingerprint: str | None = None
     signer_pinned: bool = False
     policy_summary: dict | None = None
     findings: list[Finding] = field(default_factory=list)
+    bundle_metadata: dict | None = None
+    editorial_check_set_version: str | None = None
+    editorial_profile_state: str = "absent"
+    editorial_profile_reason: str | None = None
+    editorial_record: dict | None = None
+    editorial_checks: list[EditorialCheck] = field(default_factory=list)
+    review_chain: list[dict] = field(default_factory=list)
+    editorial_responsibility: dict | None = None
 
     def add(self, code: str, severity: str, message: str) -> None:
         self.findings.append(Finding(code, severity, message))
@@ -36,14 +82,34 @@ class VerificationResult:
             self.valid = False
 
     def to_dict(self) -> dict:
+        editorial_counts = {
+            status: sum(1 for item in self.editorial_checks if item.status == status)
+            for status in ("satisfied", "not_satisfied", "unverifiable")
+        }
         return {
-            "bundle": self.bundle,
+            "bundle": Path(self.bundle).name,
+            "verified_at": self.verified_at,
+            "verifier_version": self.verifier_version,
             "valid": self.valid,
+            "integrity_valid": self.integrity_valid,
             "signer_fingerprint": self.signer_fingerprint,
             "signer_pinned": self.signer_pinned,
             "policy_summary": self.policy_summary,
+            "bundle_metadata": self.bundle_metadata,
             "findings": [asdict(item) for item in self.findings],
+            "editorial_check_set_version": self.editorial_check_set_version,
+            "editorial_profile_state": self.editorial_profile_state,
+            "editorial_profile_reason": self.editorial_profile_reason,
+            "editorial_record": self.editorial_record,
+            "editorial_checks": [item.to_dict() for item in self.editorial_checks],
+            "editorial_summary": {
+                **editorial_counts,
+                "has_not_satisfied": editorial_counts["not_satisfied"] > 0,
+            },
+            "review_chain": self.review_chain,
+            "editorial_responsibility": self.editorial_responsibility,
             "assurance_boundary": "Internal consistency and declared-policy satisfaction only; not truth or complete disclosure.",
+            "limitations": LIMITATIONS,
         }
 
 
@@ -196,6 +262,32 @@ def _validate_event_shape(events: list[object], result: VerificationResult) -> N
             result.add("INVALID_EVENT_DATA", "error", f"Event {event_id or expected_sequence} data must be an object")
 
 
+def _check_event_times(events: list[object], result: VerificationResult) -> None:
+    values = [event.get("occurred_at") for event in events if isinstance(event, dict)]
+    if len(values) > 1 and len(set(values)) == 1:
+        result.add(
+            "UNCORROBORATED_EVENT_TIMESTAMPS",
+            "warning",
+            "All events share a single timestamp; sequence is not independently corroborated.",
+        )
+    parsed = []
+    for index, value in enumerate(values, start=1):
+        if not isinstance(value, str):
+            result.add("INVALID_EVENT_TIMESTAMP", "error", f"Event {index} timestamp is not a string")
+            return
+        try:
+            parsed.append(datetime.fromisoformat(value.replace("Z", "+00:00")))
+        except ValueError:
+            result.add("INVALID_EVENT_TIMESTAMP", "error", f"Event {index} timestamp is not valid ISO 8601")
+            return
+    if any(later < earlier for earlier, later in zip(parsed, parsed[1:])):
+        result.add(
+            "NON_MONOTONIC_EVENT_TIMESTAMPS",
+            "warning",
+            "Event timestamps move backwards relative to the recorded sequence.",
+        )
+
+
 def _artifact_paths(events: list[object]) -> set[str]:
     paths = set()
     for event in events:
@@ -289,9 +381,23 @@ def _validate_semantics(bundle_dir: Path, events: list[object], policy: dict, re
             result.add("APPROVAL_COVERAGE_INCOMPLETE", "error", f"Approval role {required['role']} does not cover every material claim")
 
 
+def _set_editorial_unavailable(result: VerificationResult, reason: str) -> None:
+    result.editorial_profile_state = "unavailable"
+    result.editorial_profile_reason = reason
+    evaluation = unavailable_editorial_evaluation(reason, result.integrity_valid)
+    result.editorial_check_set_version = EDITORIAL_CHECK_SET_VERSION
+    result.editorial_checks = evaluation.checks
+
+
 def verify_bundle(bundle_dir: Path, expected_key: str | None = None) -> VerificationResult:
     bundle_dir = bundle_dir.resolve()
     result = VerificationResult(bundle=str(bundle_dir))
+    editorial_path = bundle_dir / "editorial-record.json"
+    if editorial_path.exists() or editorial_path.is_symlink():
+        _set_editorial_unavailable(
+            result,
+            "Bundle verification did not reach a digest-verified editorial profile, so its content was not evaluated.",
+        )
     descriptor = _load_json(bundle_dir / "bundle.json", "bundle", result)
     policy = _load_json(bundle_dir / "policy.json", "policy", result)
     envelope = _load_json(bundle_dir / "attestation.dsse.json", "attestation", result)
@@ -303,6 +409,12 @@ def verify_bundle(bundle_dir: Path, expected_key: str | None = None) -> Verifica
 
     descriptor_valid = _validate_descriptor(descriptor, result)
     policy_valid = _validate_policy(policy, result)
+    result.bundle_metadata = {
+        "run_id": descriptor.get("run_id"),
+        "spec_version": descriptor.get("spec_version"),
+        "producer": descriptor.get("producer"),
+        "created_at": descriptor.get("created_at"),
+    }
     try:
         statement, fingerprint = verify_envelope(envelope, public_path)
         result.signer_fingerprint = fingerprint
@@ -336,12 +448,14 @@ def verify_bundle(bundle_dir: Path, expected_key: str | None = None) -> Verifica
         result.add("INVALID_EVENTS_FILE", "error", str(exc))
         events = []
     _validate_event_shape(events, result)
+    _check_event_times(events, result)
 
     subjects = statement.get("subject")
     if not isinstance(subjects, list) or not subjects:
         result.add("MISSING_ATTESTED_SUBJECTS", "error", "Attestation has no signed subjects")
         subjects = []
     subject_names = set()
+    verified_subject_names = set()
     for subject in subjects:
         if not isinstance(subject, dict):
             result.add("INVALID_ATTESTED_SUBJECT", "error", "Attested subject must be an object")
@@ -361,6 +475,8 @@ def verify_bundle(bundle_dir: Path, expected_key: str | None = None) -> Verifica
             result.add("MISSING_SUBJECT", "error", f"Signed subject is missing: {name}")
         elif not isinstance(expected_digest, str) or sha256_file(subject_path) != expected_digest:
             result.add("SUBJECT_DIGEST_MISMATCH", "error", f"Signed subject changed after signing: {name}")
+        else:
+            verified_subject_names.add(name)
 
     required_subjects = CORE_SUBJECTS | _artifact_paths(events)
     for name in sorted(required_subjects - subject_names):
@@ -402,6 +518,58 @@ def verify_bundle(bundle_dir: Path, expected_key: str | None = None) -> Verifica
                 result.add("REPORT_NOT_DERIVED_FROM_EVENTS", "error", "report.html does not match the signed descriptor, events, and policy")
         except (KeyError, TypeError, AttributeError, OSError) as exc:
             result.add("REPORT_NOT_DERIVED_FROM_EVENTS", "error", f"report.html could not be reconstructed: {exc}")
+
+    result.integrity_valid = not any(
+        finding.severity == "error" and finding.code in INTEGRITY_FAILURE_CODES
+        for finding in result.findings
+    )
+
+    if editorial_path.is_file() and "editorial-record.json" not in verified_subject_names:
+        _set_editorial_unavailable(
+            result,
+            "The editorial profile was not covered by a matching signed digest, so its content was not evaluated.",
+        )
+    elif editorial_path.is_file():
+        try:
+            editorial_profile = json.loads(editorial_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+            result.add("INVALID_EDITORIAL_PROFILE", "error", f"Editorial profile is unreadable: {exc}")
+            _set_editorial_unavailable(
+                result,
+                "The signed editorial profile could not be parsed, so its content was not evaluated.",
+            )
+        else:
+            if not isinstance(editorial_profile, dict):
+                result.add("INVALID_EDITORIAL_PROFILE", "error", "Editorial profile must be a JSON object")
+                _set_editorial_unavailable(
+                    result,
+                    "The signed editorial profile is not a JSON object, so its content was not evaluated.",
+                )
+            else:
+                evaluation = evaluate_editorial_profile(bundle_dir, editorial_profile, result.integrity_valid)
+                if evaluation.checks:
+                    result.editorial_profile_state = "evaluated"
+                    result.editorial_profile_reason = None
+                    result.editorial_record = evaluation.record or None
+                    result.editorial_checks = evaluation.checks
+                    result.review_chain = evaluation.review_chain
+                    result.editorial_responsibility = evaluation.responsibility
+                else:
+                    _set_editorial_unavailable(
+                        result,
+                        "The signed editorial profile name or version is unsupported, so its content was not evaluated.",
+                    )
+                result.editorial_check_set_version = EDITORIAL_CHECK_SET_VERSION
+                for code, message in evaluation.findings:
+                    severity = "error" if code == "INVALID_EDITORIAL_PROFILE" else "warning"
+                    result.add(code, severity, message)
+
+    if any(item.status == "not_satisfied" for item in result.editorial_checks):
+        result.add(
+            "EDITORIAL_CHECKS_NOT_SATISFIED",
+            "error",
+            "One or more editorial record checks are not satisfied; inspect the individual check results.",
+        )
 
     result.add(
         "SELF_ATTESTATION_LIMIT",
