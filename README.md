@@ -32,6 +32,20 @@ The wizard does not call an AI API, upload the publication, or send the record a
 
 A record with no or partial substantive review is still signed and downloadable, but its overall editorial verification result is `FAIL`. This preserves the declaration without presenting incomplete review as satisfied.
 
+## Try Verification First
+
+Before creating your own record, verify the included samples:
+
+```powershell
+python -m pip install .
+pramaan verify samples/editorial-pass
+pramaan verify samples/editorial-fail-missing-reviewer
+```
+
+The first sample exits `0` with overall `PASS`. The second sample has intact signed files but exits nonzero with overall `FAIL` because no substantive human review and no responsible person are recorded.
+
+This is the product boundary in one minute: Pramaan can show whether a signed record is intact and internally consistent; it still does not prove that the underlying content is true or that the producer recorded everything that happened.
+
 ## Ten-Minute Demo
 
 Install from this repository, then run the demonstration:

@@ -1,0 +1,12 @@
+{
+  "policy_version": "0.1",
+  "policy_id": "editorial-record-demo-v0.1",
+  "material_claims_require_evidence": true,
+  "required_validations": [
+    {
+      "name": "citation_check",
+      "status": "passed"
+    }
+  ],
+  "required_approvals": []
+}

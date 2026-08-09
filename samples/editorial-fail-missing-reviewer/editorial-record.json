@@ -1,0 +1,25 @@
+{
+  "profile": "editorial-responsibility",
+  "profile_version": "0.1",
+  "check_set_version": "0.1",
+  "item": {
+    "item_id": "community-resilience-update-2026-08",
+    "item_title": "Community Resilience Update",
+    "publication_context": "Harbour Community Brief / Public updates",
+    "published_artifact": "artifacts/published-item.txt",
+    "content_hash": "a017a6b8f0e1ec8636dd5dead44051a1e53b49e62f346ec3b1ea5e8496b3f408",
+    "published_at": "2026-08-02T09:00:00Z"
+  },
+  "generation_events": [
+    {
+      "system_id": "research-agent",
+      "system_name": "Research Agent",
+      "model": "producer-supplied",
+      "model_version": "unknown",
+      "occurred_at": "2026-08-02T08:05:00Z"
+    }
+  ],
+  "review_events": [],
+  "editorial_responsibility": null,
+  "disclosure_state": "unknown"
+}
