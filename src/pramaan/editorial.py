@@ -121,6 +121,12 @@ def evaluate_editorial_profile(bundle_dir: Path, profile: dict, core_integrity_v
         "content_hash": item.get("content_hash"),
         "published_artifact": item.get("published_artifact"),
         "published_at": item.get("published_at"),
+        "review_state": profile.get("review_state")
+        if profile.get("review_state") in {"complete", "none", "partial"}
+        else ("complete" if reviews else "none"),
+        "partial_review_note": profile.get("partial_review_note")
+        if isinstance(profile.get("partial_review_note"), str)
+        else None,
         "disclosure_state": profile.get("disclosure_state")
         if profile.get("disclosure_state") in {"labelled", "not_labelled", "unknown"}
         else "unknown",
@@ -136,13 +142,42 @@ def evaluate_editorial_profile(bundle_dir: Path, profile: dict, core_integrity_v
         if review.get("review_type") == "substantive"
         and all(isinstance(review.get(key), str) and review.get(key) for key in substantive_fields)
     ]
-    if substantive:
+    review_state = evaluation.record["review_state"]
+    if review_state in {"none", "partial"} and substantive:
+        evaluation.checks.append(_check(
+            EDITORIAL_CHECK_IDS[0],
+            "Substantive review recorded",
+            "not_satisfied",
+            True,
+            "The signed record contains a substantive review event that contradicts the declared absent or incomplete review state.",
+        ))
+        evaluation.findings.append((
+            "EDITORIAL_REVIEW_STATE_CONTRADICTION",
+            "Review events contradict the declared review state",
+        ))
+    elif substantive:
         evaluation.checks.append(_check(
             EDITORIAL_CHECK_IDS[0],
             "Substantive review recorded",
             "satisfied",
             True,
             "The producer declared at least one review as substantive; Pramaan cannot assess its quality or substance in fact.",
+        ))
+    elif review_state == "none":
+        evaluation.checks.append(_check(
+            EDITORIAL_CHECK_IDS[0],
+            "Substantive review recorded",
+            "not_satisfied",
+            True,
+            "No substantive human review is claimed for this item.",
+        ))
+    elif review_state == "partial":
+        evaluation.checks.append(_check(
+            EDITORIAL_CHECK_IDS[0],
+            "Substantive review recorded",
+            "not_satisfied",
+            True,
+            "The producer declared partial or incomplete review, not complete substantive review.",
         ))
     else:
         evaluation.checks.append(_check(
@@ -254,6 +289,17 @@ def evaluate_editorial_profile(bundle_dir: Path, profile: dict, core_integrity_v
             False,
             "At least one review does not state whether changes were made.",
         ))
+    elif changed_reviews and any(
+        review.get("change_evidence_basis") == "no_pre_review_baseline"
+        for review in changed_reviews
+    ):
+        evaluation.checks.append(_check(
+            EDITORIAL_CHECK_IDS[4],
+            "Change evidence digest recorded",
+            "unverifiable",
+            False,
+            "Changes were declared, but no pre-review baseline or diff was recorded; the final content hash alone cannot establish what changed.",
+        ))
     elif changed_reviews and not all(
         any(
             isinstance(value, str) and SHA256_PATTERN.fullmatch(value)
@@ -339,6 +385,9 @@ def evaluate_editorial_profile(bundle_dir: Path, profile: dict, core_integrity_v
             "action": f"Declared {review.get('review_type', 'unspecified')} review of {review.get('scope_reviewed', 'unspecified scope')}",
             "binding": "self-asserted",
             "occurred_at": review.get("occurred_at"),
+            "scope_reviewed": review.get("scope_reviewed"),
+            "review_duration_minutes": review.get("review_duration_minutes"),
+            "competence_basis": review.get("competence_basis"),
         })
     evaluation.review_chain.append({
         "kind": "publication",

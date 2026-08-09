@@ -32,6 +32,12 @@ def _status(value: str) -> str:
     return f'<span class="status status-{escape(value)}">{escape(value)}</span>'
 
 
+def _review_fact(label: str, value: object, suffix: str = "") -> str:
+    if value in (None, ""):
+        return ""
+    return f"{label}: {_producer_value(value)}{suffix}."
+
+
 def render_verification_report(result: VerificationResult) -> str:
     metadata = result.bundle_metadata or {}
     producer = metadata.get("producer") if isinstance(metadata.get("producer"), dict) else {}
@@ -42,6 +48,45 @@ def render_verification_report(result: VerificationResult) -> str:
     declared_title = record.get("item_title") or metadata.get("run_id") or "not recorded"
     integrity = "valid" if result.integrity_valid else "invalid"
     overall = "PASS" if result.valid else "FAIL"
+    review_state = record.get("review_state")
+    declared_review = next(
+        (item for item in result.review_chain if item.get("kind") == "review"),
+        None,
+    )
+    if review_state == "none":
+        review_declaration = "<p><strong>No substantive human review is claimed for this item.</strong></p>"
+    elif review_state == "partial":
+        review_declaration = (
+            "<p><strong>The producer declared partial or incomplete review.</strong> "
+            f"Not reviewed: {_producer_value(record.get('partial_review_note'))}</p>"
+        )
+    elif review_state == "complete":
+        review_declaration = "<p><strong>The producer declared complete substantive review.</strong></p>"
+        if declared_review:
+            review_facts = " ".join(
+                item
+                for item in (
+                    _review_fact(
+                        "Producer-declared reviewer",
+                        declared_review.get("display_name") or declared_review.get("actor_id"),
+                    ),
+                    _review_fact("Scope", declared_review.get("scope_reviewed")),
+                    _review_fact(
+                        "Time spent",
+                        declared_review.get("review_duration_minutes"),
+                        " minutes",
+                    ),
+                    _review_fact("Basis", declared_review.get("competence_basis")),
+                )
+                if item
+            )
+            review_declaration += (
+                f"<p>{review_facts}</p>"
+                if review_facts
+                else "<p>No reviewer details were recorded.</p>"
+            )
+    else:
+        review_declaration = ""
 
     check_rows = "".join(
         "<tr>"
@@ -67,10 +112,13 @@ def render_verification_report(result: VerificationResult) -> str:
         f"<td>{_producer_value(item.get('kind'))}</td>"
         f"<td>{_producer_value(item.get('display_name') or item.get('actor_id'))}<br><code>{_producer_value(item.get('actor_id'))}</code></td>"
         f"<td>{_producer_value(item.get('action'))}</td>"
+        f"<td>{_producer_value(item.get('scope_reviewed'))}</td>"
+        f"<td>{_producer_value(item.get('review_duration_minutes'))}</td>"
+        f"<td>{_producer_value(item.get('competence_basis'))}</td>"
         f"<td><span class=\"binding\">{_producer_value(item.get('binding'))}</span></td>"
         "</tr>"
         for item in result.review_chain
-    ) or '<tr><td colspan="5">No editorial review chain was available.</td></tr>'
+    ) or '<tr><td colspan="8">No editorial review chain was available.</td></tr>'
 
     satisfied = [item for item in checks if item.status == "satisfied"]
     unresolved = [item for item in checks if item.status != "satisfied"]
@@ -136,6 +184,8 @@ def render_verification_report(result: VerificationResult) -> str:
     else:
         editorial_summary = f"{counts['satisfied']} satisfied, {counts['not_satisfied']} not_satisfied, {counts['unverifiable']} unverifiable"
         editorial_plain = (
+            review_declaration
+            +
             f"<h3>Satisfied</h3><ul>{satisfied_items}</ul>"
             f"<h3>Open or missing</h3><ul>{unresolved_items}</ul>"
             f"<ul class=\"legend\"><li>{_status('satisfied')}<span>The check ran and the recorded condition was present.</span></li><li>{_status('not_satisfied')}<span>The check ran and the recorded condition was absent or contradicted.</span></li><li>{_status('unverifiable')}<span>The required information was unavailable or could not support a conclusion.</span></li></ul>"
@@ -169,9 +219,9 @@ def render_verification_report(result: VerificationResult) -> str:
 <section><h2>What this page cannot tell you</h2><ul>{limitation_items}</ul></section>
 </div>
 <div id="technical-panel" class="panel" role="tabpanel" aria-labelledby="technical-tab" hidden><p class="panel-title">Technical detail</p>
-<section><h2>Verification metadata</h2><dl class="kv"><dt>Bundle folder <span class="note">(verifier input name; may be producer-chosen)</span></dt><dd><code>{_producer_value(Path(result.bundle).name)}</code></dd><dt>Run ID <span class="note">(producer-declared)</span></dt><dd><code>{_producer_value(metadata.get('run_id'))}</code></dd><dt>Producer <span class="note">(producer-declared)</span></dt><dd>{_producer_value(producer.get('name'))} (<code>{_producer_value(producer.get('id'))}</code>)</dd><dt>Item ID <span class="note">(producer-declared)</span></dt><dd><code>{_producer_value(record.get('item_id'))}</code></dd><dt>Content hash <span class="note">(producer-declared, checked when available)</span></dt><dd><code>{_producer_value(record.get('content_hash'))}</code></dd><dt>Disclosure state <span class="note">(producer-declared)</span></dt><dd><code>{_producer_value(record.get('disclosure_state'))}</code></dd><dt>Profile state</dt><dd><code>{escape(result.editorial_profile_state)}</code></dd><dt>Check set</dt><dd><code>{_value(result.editorial_check_set_version)}</code></dd><dt>Signer fingerprint</dt><dd><code>{fingerprint_text}</code></dd><dt>Signer pinned</dt><dd><code>{str(result.signer_pinned).lower()}</code></dd></dl></section>
+<section><h2>Verification metadata</h2><dl class="kv"><dt>Bundle folder <span class="note">(verifier input name; may be producer-chosen)</span></dt><dd><code>{_producer_value(Path(result.bundle).name)}</code></dd><dt>Run ID <span class="note">(producer-declared)</span></dt><dd><code>{_producer_value(metadata.get('run_id'))}</code></dd><dt>Producer <span class="note">(producer-declared)</span></dt><dd>{_producer_value(producer.get('name'))} (<code>{_producer_value(producer.get('id'))}</code>)</dd><dt>Item ID <span class="note">(producer-declared)</span></dt><dd><code>{_producer_value(record.get('item_id'))}</code></dd><dt>Published artifact <span class="note">(producer-declared, digest checked)</span></dt><dd><code>{_producer_value(record.get('published_artifact'))}</code></dd><dt>Content hash <span class="note">(producer-declared, checked when available)</span></dt><dd><code>{_producer_value(record.get('content_hash'))}</code></dd><dt>Review state <span class="note">(producer-declared)</span></dt><dd><code>{_producer_value(record.get('review_state'))}</code></dd><dt>Partial review note <span class="note">(producer-declared)</span></dt><dd>{_producer_value(record.get('partial_review_note'))}</dd><dt>Disclosure state <span class="note">(producer-declared)</span></dt><dd><code>{_producer_value(record.get('disclosure_state'))}</code></dd><dt>Profile state</dt><dd><code>{escape(result.editorial_profile_state)}</code></dd><dt>Check set</dt><dd><code>{_value(result.editorial_check_set_version)}</code></dd><dt>Signer fingerprint</dt><dd><code>{fingerprint_text}</code></dd><dt>Signer pinned</dt><dd><code>{str(result.signer_pinned).lower()}</code></dd></dl></section>
 <section><h2>Checks performed</h2><div class="table-wrap"><table><thead><tr><th>Check</th><th>Status</th><th>Ran?</th><th>Reason</th></tr></thead><tbody>{check_rows}</tbody></table></div></section>
-<section><h2>Review chain</h2><p class="note">Times are producer-supplied and are not independently trusted.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Kind</th><th>Actor</th><th>Action</th><th>Identity</th></tr></thead><tbody>{chain_rows}</tbody></table></div></section>
+<section><h2>Review chain</h2><p class="note">Times, scope, duration, and competence basis are producer-supplied and are not independently verified.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Kind</th><th>Actor</th><th>Action</th><th>Scope</th><th>Minutes</th><th>Competence basis</th><th>Identity</th></tr></thead><tbody>{chain_rows}</tbody></table></div></section>
 <section><h2>Core verifier findings</h2><p class="note">Messages may quote producer-declared identifiers or file names; selected high-risk assurance phrases are filtered, and producer-controlled values remain labelled.</p><div class="table-wrap"><table><thead><tr><th>Severity</th><th>Code</th><th>Message</th></tr></thead><tbody>{finding_rows}</tbody></table></div></section>
 <section><h2>Assurance boundary</h2><ul>{limitation_items}</ul></section>
 </div>

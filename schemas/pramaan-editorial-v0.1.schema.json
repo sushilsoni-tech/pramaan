@@ -23,6 +23,8 @@
     },
     "generation_events": {"type": "array", "items": {"type": "object"}},
     "review_events": {"type": "array", "items": {"type": "object"}},
+    "review_state": {"enum": ["complete", "none", "partial"]},
+    "partial_review_note": {"type": ["string", "null"], "maxLength": 200},
     "editorial_responsibility": {"type": ["object", "null"]},
     "disclosure_state": {"enum": ["labelled", "not_labelled", "unknown"]}
   },
