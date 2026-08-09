@@ -75,6 +75,18 @@ class EditorialProfileTests(unittest.TestCase):
         self.assertEqual(checks["review.timing"].status, "not_satisfied")
         self.assertIn("latest recorded generation", checks["review.timing"].reason.lower())
 
+    def test_partial_review_state_with_substantive_event_is_not_satisfied(self):
+        bundle = build_editorial_example(self.root / "contradictory-review-state", case="valid")
+        profile = json.loads((bundle / "editorial-record.json").read_text(encoding="utf-8"))
+        profile["review_state"] = "partial"
+        profile["partial_review_note"] = "Numbers were not checked."
+        evaluation = evaluate_editorial_profile(bundle, profile, core_integrity_valid=True)
+        checks = {item.check_id: item for item in evaluation.checks}
+
+        self.assertEqual(checks["review.substantive_recorded"].status, "not_satisfied")
+        self.assertIn("contradict", checks["review.substantive_recorded"].reason.lower())
+        self.assertIn("EDITORIAL_REVIEW_STATE_CONTRADICTION", {code for code, _ in evaluation.findings})
+
     def test_outputs_are_offline_structured_and_do_not_change_bundle(self):
         bundle = build_editorial_example(self.root / "output-source", case="valid")
         before = {path.relative_to(bundle).as_posix() for path in bundle.rglob("*") if path.is_file()}

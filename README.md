@@ -17,6 +17,21 @@ Customer verifies it on their own machine
                 -> sees a named PASS or FAIL
 ```
 
+## Create A Record Without Code
+
+Start the local wizard:
+
+```powershell
+python -m pip install .
+pramaan wizard
+```
+
+The wizard opens in your browser and stays on `127.0.0.1`. Select the final publication file, describe the AI contribution, choose whether human review was complete, absent, or partial, and name the person or entity accepting responsibility. Pramaan creates a signed bundle, verifies it immediately, provides a local plain-language report, and offers a downloadable ZIP containing only the signed bundle. If the item is not published yet, the wizard records that state without inventing a publication time.
+
+The wizard does not call an AI API, upload the publication, or send the record anywhere. It stores records under `./pramaan-records` by default and keeps a persistent signing key under `~/.pramaan/keys`. Keep that private key private; share the signer fingerprint separately when another person needs to verify your identity. Recipients should unzip the downloaded bundle and run `pramaan verify <unzipped-folder>` rather than relying on a report supplied by the producer.
+
+A record with no or partial substantive review is still signed and downloadable, but its overall editorial verification result is `FAIL`. This preserves the declaration without presenting incomplete review as satisfied.
+
 ## Ten-Minute Demo
 
 Install from this repository, then run the demonstration:
@@ -108,9 +123,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution scope and [SECURITY.md](
 
 ## Status
 
-Pramaan `0.1.0` is the published validation prototype. The current `main` branch is `0.2.0.dev0`. The product is considered validated only when a bundle crosses a real organisational trust boundary and changes whether an external reviewer accepts the producer's claimed workflow.
+Pramaan `0.1.0` is the published validation prototype. The current development line is `0.2.0.dev0`. The product is considered validated only when a bundle crosses a real organisational trust boundary and changes whether an external reviewer accepts the producer's claimed workflow.
 
-Version 0.1 ships a complete demonstration producer and verifier. The optional editorial profile and verifier-generated result surface are under active `0.2.0.dev0` validation on `main`. The Python `Recorder` API is intentionally not yet documented as a stable integration contract; early adopters should treat it as experimental while real cross-organisation workflows shape the first supported producer interface.
+Version 0.1 ships a complete demonstration producer and verifier. The optional editorial profile, local Create Record wizard, and verifier-generated result surface are under active `0.2.0.dev0` validation. The wizard is the first supported producer experience; the Python `Recorder` API remains experimental while real cross-organisation workflows shape the integration contract.
 
 ## License
 

@@ -8,6 +8,7 @@ from .examples import build_editorial_example, build_two_agent_example
 from .tamper import TAMPER_CASES, create_tampered_copy
 from .verify import verify_bundle
 from .verification_report import write_verification_outputs
+from .wizard import run_wizard
 
 
 def _print_result(result, as_json: bool) -> None:
@@ -72,6 +73,22 @@ def build_parser() -> argparse.ArgumentParser:
     tamper.add_argument("bundle", type=Path)
     tamper.add_argument("--case", required=True, choices=sorted(TAMPER_CASES))
     tamper.add_argument("--output", required=True, type=Path)
+
+    wizard = subcommands.add_parser("wizard", help="Open the local Create Record wizard")
+    wizard.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path.cwd() / "pramaan-records",
+        help="Directory for generated records (default: ./pramaan-records)",
+    )
+    wizard.add_argument(
+        "--key",
+        type=Path,
+        default=Path.home() / ".pramaan" / "keys" / "producer-private.pem",
+        help="Persistent Ed25519 signing key (default: ~/.pramaan/keys/producer-private.pem)",
+    )
+    wizard.add_argument("--port", type=int, default=8766, help="Local port (default: 8766; use 0 for automatic)")
+    wizard.add_argument("--no-open", action="store_true", help="Do not open the browser automatically")
     return parser
 
 
@@ -97,6 +114,14 @@ def main(argv: list[str] | None = None) -> None:
                 write_verification_outputs(result, html_path=args.result_html, json_path=args.result_json)
             _print_result(result, args.json)
             raise SystemExit(0 if result.valid else 1)
+        if args.command == "wizard":
+            run_wizard(
+                output_root=args.output_dir,
+                private_key_path=args.key,
+                port=args.port,
+                open_browser=not args.no_open,
+            )
+            return
     except (FileNotFoundError, ValueError, OSError) as exc:
         print(f"pramaan: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc

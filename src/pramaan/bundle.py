@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .canonical import canonical_json_bytes, sha256_file, write_json
-from .crypto import generate_keypair, sign_statement
+from .crypto import generate_keypair, secure_private_key_permissions, sign_statement
 from .report import generate_report
 
 
@@ -100,6 +100,7 @@ class Recorder:
             ephemeral_key_dir = tempfile.TemporaryDirectory(prefix="pramaan-signing-")
             private_key_path = Path(ephemeral_key_dir.name) / "producer-private.pem"
         if private_key_path.exists():
+            secure_private_key_permissions(private_key_path)
             from cryptography.hazmat.primitives import serialization
             from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
             from .crypto import public_key_fingerprint

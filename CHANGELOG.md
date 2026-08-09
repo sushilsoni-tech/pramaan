@@ -11,6 +11,10 @@ All notable changes to Pramaan will be documented here.
 - verifier-generated offline HTML and JSON outputs with plain-language and technical views;
 - realistic monotonic demo timestamps plus warnings for identical or backwards-moving producer timestamps;
 - editorial examples for a valid record, a missing reviewer, and a review recorded after publication.
+- local six-step Create Record wizard for nontechnical producers;
+- persistent local signing identity, immediate verification, and downloadable signed-bundle ZIPs;
+- explicit complete, absent, and partial human-review declarations;
+- pre-publication records that do not require a fabricated publication timestamp.
 
 ### Security
 
@@ -26,6 +30,11 @@ All notable changes to Pramaan will be documented here.
 - change-evidence fields must contain valid SHA-256 digests, and post-review content digests must match the declared publication digest.
 - sequential review rounds compare only the latest changed review's post-review digest with the final publication;
 - verifier input folder names are treated as potentially producer-controlled text.
+- wizard requests are protected by an unguessable local session token and a 10 MB file limit;
+- uploaded filenames are normalized before writing and files are re-hashed at creation time;
+- the wizard fails closed if its newly created bundle does not pass signed-file integrity verification;
+- private signing keys and verifier-owned result files remain outside downloadable record ZIPs.
+- future publication timestamps are rejected unless the item is declared not yet published.
 
 ## 0.1.0 - 2026-08-03
 
