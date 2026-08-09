@@ -96,6 +96,24 @@ class CliTests(unittest.TestCase):
             self.assertTrue(payload["integrity_valid"])
             self.assertFalse(payload["valid"])
 
+    def test_shipped_editorial_samples_verify_as_documented(self):
+        samples = Path(__file__).resolve().parents[1] / "samples"
+        passed = self.run_cli("verify", str(samples / "editorial-pass"), "--json")
+        self.assertEqual(0, passed.returncode, passed.stdout + passed.stderr)
+        pass_payload = json.loads(passed.stdout)
+        self.assertTrue(pass_payload["valid"])
+        self.assertTrue(pass_payload["integrity_valid"])
+        self.assertEqual(0, pass_payload["editorial_summary"]["not_satisfied"])
+        self.assertFalse(pass_payload["editorial_summary"]["has_not_satisfied"])
+
+        failed = self.run_cli("verify", str(samples / "editorial-fail-missing-reviewer"), "--json")
+        self.assertEqual(1, failed.returncode, failed.stdout + failed.stderr)
+        fail_payload = json.loads(failed.stdout)
+        self.assertFalse(fail_payload["valid"])
+        self.assertTrue(fail_payload["integrity_valid"])
+        self.assertGreater(fail_payload["editorial_summary"]["not_satisfied"], 0)
+        self.assertTrue(fail_payload["editorial_summary"]["has_not_satisfied"])
+
 
 if __name__ == "__main__":
     unittest.main()

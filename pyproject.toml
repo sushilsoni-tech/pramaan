@@ -22,7 +22,7 @@ classifiers = [
   "Topic :: Security :: Cryptography",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-keywords = ["ai-agents", "verification", "provenance", "attestation", "audit"]
+keywords = ["ai-agents", "ai-disclosure", "human-review", "verification", "provenance", "attestation", "signed-records", "audit"]
 
 [project.urls]
 Homepage = "https://github.com/sushilsoni-tech/pramaan"

@@ -46,6 +46,10 @@ The first sample exits `0` with overall `PASS`. The second sample has intact sig
 
 This is the product boundary in one minute: Pramaan can show whether a signed record is intact and internally consistent; it still does not prove that the underlying content is true or that the producer recorded everything that happened.
 
+## Article
+
+Read the public product essay: [Human-Reviewed AI Content Needs Evidence, Not Just a Promise](docs/articles/human-reviewed-ai-content-needs-proof.md).
+
 ## Ten-Minute Demo
 
 Install from this repository, then run the demonstration:
